@@ -9,10 +9,10 @@
 
 - [Project Overview](#project-overview)
 - [Report Screenshots](#report-screenshots)
-- [Part 1 - Connecting & Shaping Data](#part-1--connecting--shaping-data)
-- [Part 2 - Data Modeling](#part-2--data-modeling)
-- [Part 3 - Calculated Fields with DAX](#part-3--calculated-fields-with-dax)
-- [Part 4 - Visualizing Data with Reports](#part-4--visualizing-data-with-reports)
+- [Part 1 - Connecting & Shaping Data](#part-1---connecting--shaping-data)
+- [Part 2 - Data Modeling](#part-2---data-modeling)
+- [Part 3 - Calculated Fields with DAX](#part-3---calculated-fields-with-dax)
+- [Part 4 - Visualizing Data with Reports](#part-4---visualizing-data-with-reports)
 - [Key Learnings](#key-learnings)
 - [Tools & Technologies](#tools--technologies)
 - [Course Credit](#course-credit)
@@ -433,4 +433,3 @@ This project reinforced several principles that I'll carry into future BI work:
 This project was built as part of the **Microsoft Power BI Desktop** course by [Maven Analytics](https://www.mavenanalytics.io/).
 
 The AdventureWorks dataset is a fictional dataset used for learning and demonstration purposes.
-"# AdventureWorks-PowerBI-Report" 
