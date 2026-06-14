@@ -1,0 +1,1 @@
+An interactive business intelligence dashboard for exploring sales performance and key operational metrics.
