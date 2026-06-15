@@ -96,7 +96,7 @@ The model was designed with a **downward filter flow** to ensure a seamless conn
 - A **Star Schema** governs the main structure — each fact table sits at the center and is directly connected to its surrounding dimension tables
 - A **Snowflake Schema** is used within the product hierarchy, where `Product Categories Lookup` → `Product Subcategories Lookup` → `Product Lookup` are chained in a normalized, multi-level structure
 
-Relationships between all tables are based on **primary and foreign keys**, with **one-to-many cardinality** and a **single cross-filter direction** throughout. To keep the model clean and user-friendly, primary keys were designated as the key column, and all foreign keys were hidden from the report view.
+Relationships between all tables are based on **primary and foreign keys**, with **one-to-many cardinality** and a **single cross-filter direction** throughout. To keep the model clean and user-friendly, primary keys were designated as the key column, and all foreign keys from fact tables were hidden from the report view. Moreover, the dimension/lookup tables were arranged above the fact tables as a visual reminder that **filters always flow downstream**.
 
 The model contains:
 
@@ -114,11 +114,12 @@ All relationships were created manually in the **Model View**. Key decisions mad
 - **Single-direction filters** were used throughout to avoid ambiguity and circular dependency risks
 
 
+
 > 💡 **What I learned:** The Star Schema isn't just a design preference — it's a performance choice. Flat, denormalized tables feel intuitive but force Power BI to work harder. Separating facts from dimensions and keeping relationships clean makes DAX filters propagate correctly and keeps model performance fast.
 
 ---
 
-## Part 3 - Calculated Fields with DAX
+## Part 3 — Calculated Fields with DAX
 
 DAX (Data Analysis Expressions) is the formula language used in Power BI to create **measures** and **calculated columns**. All measures in this project are stored in the dedicated `Measure Table`.
 
@@ -161,11 +162,52 @@ Total Customers =
 DISTINCTCOUNT('Sales Data'[CustomerKey])
 ```
 
-> `SUMX` is used instead of `SUM` because revenue must be calculated **row by row** (quantity × price per product), then summed — a classic iterator pattern.
+```dax
+Quantity Sold = 
+SUM('Sales Data'[OrderQuantity])
+```
+
+```dax
+Quantity Returned = 
+SUM('Returns Data'[ReturnQuantity])
+```
+
+```dax
+Average Retail Price = 
+AVERAGE('Product Lookup'[ProductPrice])
+```
+
+```dax
+Overall Average Price = 
+CALCULATE(
+    [Average Retail Price],
+    ALL('Product Lookup')
+)
+```
+
+> `SUMX` is used instead of `SUM` because revenue must be calculated **row by row** (quantity × price per product), then summed — a classic iterator pattern. `Overall Average Price` uses `ALL()` to strip any product filters and return a catalog-wide average, regardless of what is selected in a visual — a common pattern for benchmarking individual products against the whole.
 
 ---
 
 ### Ratio & Rate Measures
+
+`All Orders` and `All Returns` use `ALL()` to remove filters from their respective fact tables, giving an unfiltered total that serves as the denominator in share-of-total calculations.
+
+```dax
+All Orders = 
+CALCULATE(
+    [Total Orders],
+    ALL('Sales Data')
+)
+```
+
+```dax
+All Returns = 
+CALCULATE(
+    [Total Returns],
+    ALL('Returns Data')
+)
+```
 
 ```dax
 Return Rate = 
@@ -175,6 +217,11 @@ DIVIDE([Quantity Returned], [Quantity Sold], "No Sales")
 ```dax
 % of All Orders = 
 DIVIDE([Total Orders], [All Orders])
+```
+
+```dax
+% of All Returns = 
+DIVIDE([Total Returns], [All Returns])
 ```
 
 ```dax
@@ -194,6 +241,30 @@ These measures require the Calendar table to be correctly marked as a date table
 Previous Month Revenue = 
 CALCULATE(
     [Total Revenue],
+    DATEADD('Calendar Lookup'[Date], -1, MONTH)
+)
+```
+
+```dax
+Previous Month Orders = 
+CALCULATE(
+    [Total Orders],
+    DATEADD('Calendar Lookup'[Date], -1, MONTH)
+)
+```
+
+```dax
+Previous Month Profit = 
+CALCULATE(
+    [Total Profit],
+    DATEADD('Calendar Lookup'[Date], -1, MONTH)
+)
+```
+
+```dax
+Previous Month Returns = 
+CALCULATE(
+    [Total Returns],
     DATEADD('Calendar Lookup'[Date], -1, MONTH)
 )
 ```
@@ -295,6 +366,15 @@ IF(
 ```
 
 ```dax
+Total Orders (Customer Detail) = 
+IF(
+    HASONEVALUE('Customer Lookup'[CustomerKey]),
+    [Total Orders],
+    "-"
+)
+```
+
+```dax
 Total Revenue (Customer Detail) = 
 IF(
     HASONEVALUE('Customer Lookup'[CustomerKey]),
@@ -319,10 +399,34 @@ CALCULATE(
 ```
 
 ```dax
+Bulk Orders = 
+CALCULATE(
+    [Total Orders],
+    'Sales Data'[OrderQuantity] > 1
+)
+```
+
+```dax
 Weekend Orders = 
 CALCULATE(
     [Total Orders],
     'Calendar Lookup'[Weekend] = "Weekend"
+)
+```
+
+```dax
+Bike Sales = 
+CALCULATE(
+    [Quantity Sold],
+    'Product Categories Lookup'[CategoryName] = "Bikes"
+)
+```
+
+```dax
+Bike Returns = 
+CALCULATE(
+    [Total Returns],
+    'Product Categories Lookup'[CategoryName] = "Bikes"
 )
 ```
 
@@ -363,7 +467,7 @@ The top-level summary page. Designed for a business stakeholder who needs a quic
 A geographic sales distribution view using the **ArcGIS / Bing Map** visual.
 
 **Features:**
-- Bubble map sized by order volume across 6 countries: United States, Canada, United Kingdom, France, Germany, Australia
+- Bubble map sized by order volume across countries such as: United States, Canada, United Kingdom, France, Germany, Australia
 - **Region filter buttons** for quick continental filtering: Select All / Europe / North America / Pacific
 
 ---
@@ -373,7 +477,7 @@ A geographic sales distribution view using the **ArcGIS / Bing Map** visual.
 A drill-through page — accessible by right-clicking a product on the Executive Dashboard. Designed for deep-diving into a single product's performance.
 
 **Features:**
-- Selected product display card (e.g. "Water Bottle - 30 oz.")
+- Selected product **display card** (e.g. "Water Bottle - 30 oz.")
 - **3 gauge charts** comparing current month vs. target
 - **Price Adjustment slider** — a What-If parameter that dynamically recalculates Adjusted Profit vs Total Profit on a dual-line chart
 - **Product Metric Selection** radio buttons (Orders / Revenue / Profit / Returns / Return %) that dynamically swap the area chart next to it
@@ -423,6 +527,7 @@ This project reinforced several principles that I'll carry into future BI work:
 - **Power BI Desktop** 
 - **Power Query** — data connection and transformation
 - **DAX (Data Analysis Expressions)** — calculated measures and columns
+- **ETL (Extract, Tranform, Load)** — raw data is extracted, transformed, and loaded
 - **Microsoft Bing Maps** — geographic visualizations
 - **Power BI AI Visuals** — Smart Narrative
 
